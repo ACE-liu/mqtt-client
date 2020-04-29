@@ -37,6 +37,8 @@ bool hfHttpClient::httpPostRequest(const std::string & url,
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 2); 
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.c_str());
 	curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, body.length());
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);   //https ssl验证
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0);
     code = curl_easy_perform(curl);  
     curl_slist_free_all(httpheaders);
     curl_easy_cleanup(curl);       

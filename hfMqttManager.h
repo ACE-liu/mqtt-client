@@ -52,11 +52,9 @@ private:
    bool hfMqttClientInit_(const MqttServerInfo& serverInfo);
    bool hfMqttClientReSubscribe();
 
-   bool getMqttServerMsgByDeviceCode(const std::string &httpUrl, const std::string & deviceCode, 
-                                     const std::string & brand, const std::string & signature, MqttServerInfo & serverInfo);
+   bool getMqttServerMsgByDeviceCode(const std::string &httpUrl, const std::string & deviceCode, MqttServerInfo & serverInfo);
 
-   bool getRoomInfoByDeviceCode(const std::string &httpUrl, const std::string & deviceCode, 
-                                const std::string & brand, const std::string & signature, HotelRoomInfo & roomInfo);
+   bool getRoomInfoByDeviceCode(const std::string &httpUrl, const std::string & deviceCode, HotelRoomInfo & roomInfo);
 
    static void connlost(void *context, char *cause);
    static int msgarrvd(void *context, char *topicName, int topicLen, MQTTClient_message *message);
@@ -66,6 +64,8 @@ private:
 
    void dealWithMqttMsgReceived(const std::string& topic, const std::string & msg);
    void handleEventThread();
+
+   std::string getSignature(const std::string & accessKey, const std::string & secretKey);
 
 private:
     std::string deviceCode;

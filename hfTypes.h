@@ -7,7 +7,7 @@
 #include <memory>
 
 
-#define  HF_CODE "huafu"    // 
+#define  HF_CODE "huafu"    // brand
 enum ServerReturnCode
 {
     CODE_SUCCESS = 0,

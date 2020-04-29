@@ -6,14 +6,15 @@
 #include <functional>
 #include "hfHttpClient.h"
 #include "jsoncpp/json.h"
+#include "MD5.h"
+#include <algorithm>
 
 using namespace std;
 // using namespace Json;
 
-namespace {
-    const std::string hfBrand = "hfBrand";
-    const std::string hfSignature = "hfSignature";
-
+namespace { 
+    const std::string accessKey = "shimaoec642273e1464e01";
+    const std::string secretKey = "7bd26f2936af4b10b3cae8cdc821f97e";
     const int MQTT_QUEUE_ALARM_SIZE = 400;
     const int ROOM_INFO_CALLBACK_TIME = 10000;  //ms 房间信息回调时间
     const int UPLOAD_MSG_TIME_OUT = 5000;    // ms MQTT上传消息确认超时时间
@@ -120,6 +121,16 @@ void hfMqttManager::hfMqttClientUninit()
     isConnected = false;
 }
 
+std::string hfMqttManager::getSignature(const std::string & accessKey, const std::string & secretKey)
+{
+    char stringSignTemp[1024];
+    std::string timestampStr = getTimestamp();
+    sprintf(stringSignTemp, "AccessKey=%s&Timestamp=%s&SecretKey=%s",accessKey.c_str(),timestampStr.c_str(), secretKey.c_str());
+    std::string rtn = toolkit::MD5(stringSignTemp).hexdigest();
+    std::transform(rtn.begin(), rtn.end(),rtn.begin(), ::toupper);
+    return rtn;
+}
+
 bool hfMqttManager::hfMqttManagerInit(const string & deviceCode, 
                                       const std::string &httpMqttServerUrl, 
                                       const std::string &httpRoomInfoUrl,  
@@ -138,13 +149,13 @@ bool hfMqttManager::hfMqttManagerInit(const string & deviceCode,
     sprintf(topic, "Topic:shimao/face/%s/%s/command", HF_CODE, deviceCode.c_str());
     subscribeTopicList[topic] = 2; //添加监听topic
 
-    if(getMqttServerMsgByDeviceCode(httpMqttServerUrl, deviceCode, hfBrand, hfSignature, this->mqttServerInfo))
+    if(getMqttServerMsgByDeviceCode(httpMqttServerUrl, deviceCode, this->mqttServerInfo))
     {
         hfMqttClientInit_(this->mqttServerInfo);
         hfMqttClientSubscribe(topic, 2);
     }
     
-    if(getRoomInfoByDeviceCode(httpRoomInfoUrl, deviceCode, hfBrand, hfSignature, this->hotelRoomInfo) && getMsgClk!=nullptr)
+    if(getRoomInfoByDeviceCode(httpRoomInfoUrl, deviceCode, this->hotelRoomInfo) && getMsgClk!=nullptr)
         getMsgClk(this->hotelRoomInfo);     
     
     _thread = std::make_shared<thread>([this](){ this->handleEventThread();});
@@ -307,15 +318,13 @@ bool hfMqttManager::getHotelRoomInfo(HotelRoomInfo & roomInfo)
 
 bool hfMqttManager::getMqttServerMsgByDeviceCode(const std::string &httpUrl, 
                                                  const std::string & deviceCode, 
-                                                 const std::string & brand, 
-                                                 const std::string & signature, 
                                                  MqttServerInfo & serverInfo)
 {
     string rtn;
     string body;
     std::map<string, string> headers;
-    headers["brand"] = brand;
-    headers["signature"] = signature;
+    headers["brand"] = HF_CODE;
+    headers["signature"] = getSignature(accessKey, secretKey);
     headers["Content-Type"] = "application/json;charset=UTF-8";
     headers["timestamp"] = getTimestamp();
 
@@ -348,15 +357,13 @@ bool hfMqttManager::getMqttServerMsgByDeviceCode(const std::string &httpUrl,
 
 bool hfMqttManager::getRoomInfoByDeviceCode(const std::string &httpUrl, 
                              const std::string & deviceCode, 
-                             const std::string & brand, 
-                             const std::string & signature, 
                              HotelRoomInfo & roomInfo)
 {
     string rtn;
     string body;
     std::map<string, string> headers;
-    headers["brand"] = brand;
-    headers["signature"] = signature;
+    headers["brand"] = HF_CODE;
+    headers["signature"] = getSignature(accessKey, secretKey);
     headers["Content-Type"] = "application/json";
     // headers["timestamp"] = getTimestamp();
 
@@ -535,7 +542,7 @@ void hfMqttManager::handleEventThread()
         if(!ifGetMqttServerInfo)
         {
             lock_guard<std::mutex> _guard(mtx_info);
-            if(getMqttServerMsgByDeviceCode(httpMqttServerUrl, deviceCode, hfBrand, hfSignature, this->mqttServerInfo))
+            if(getMqttServerMsgByDeviceCode(httpMqttServerUrl, deviceCode, this->mqttServerInfo))
             {
                 ifGetMqttServerInfo = true; 
             }
@@ -554,7 +561,7 @@ void hfMqttManager::handleEventThread()
         if(tempVal >= ROOM_INFO_CALLBACK_TIME)
         {
             lock_guard<std::mutex> _guard(mtx_info);
-            if(getRoomInfoByDeviceCode(httpRoomInfoUrl, deviceCode, hfBrand, hfSignature, this->hotelRoomInfo) && getMsgClk!=nullptr)
+            if(getRoomInfoByDeviceCode(httpRoomInfoUrl, deviceCode,  this->hotelRoomInfo) && getMsgClk!=nullptr)
                 getMsgClk(this->hotelRoomInfo);  
             lastTime = curTime;
             minWaitTime = std::min(minWaitTime, ROOM_INFO_CALLBACK_TIME);
