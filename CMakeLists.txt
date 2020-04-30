@@ -26,13 +26,11 @@ endif()
 
 ADD_LIBRARY(jsoncpp STATIC ${jsoncpp_src_list})
 
-ADD_EXECUTABLE(hfMqttTest hfMqttTest.cpp)
-TARGET_LINK_LIBRARIES(hfMqttTest paho-mqtt3c)
 
 
 
-ADD_EXECUTABLE(hfMqttTest1 hfMqttTest1.cpp ${src_list})
-TARGET_LINK_LIBRARIES(hfMqttTest1 paho-mqtt3c jsoncpp curl pthread)
+ADD_EXECUTABLE(hfMqttTest hfMqttTest.cpp ${src_list})
+TARGET_LINK_LIBRARIES(hfMqttTest paho-mqtt3c jsoncpp curl pthread)
 
 
 

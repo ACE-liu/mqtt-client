@@ -65,7 +65,7 @@ private:
    void dealWithMqttMsgReceived(const std::string& topic, const std::string & msg);
    void handleEventThread();
 
-   std::string getSignature(const std::string & accessKey, const std::string & secretKey);
+   std::string getSignature(const std::string & entityCode, const std::string & accessKey, const std::string & secretKey);
 
 private:
     std::string deviceCode;

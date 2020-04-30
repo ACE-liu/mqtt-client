@@ -1,166 +1,98 @@
-
 #include <iostream>
 #include <string>
 #include "MQTTClient.h"
 #include <stdlib.h>
 #include <string.h>
+#include "hfMqttManager.h"
+#include <vector>
+#include <map>
+
 
 using namespace std;
 
 
-#define ADDRESS     "tcp://172.16.19.150:1883"
-#define CLIENTID    "ClientSubliuliu"
-#define TOPIC       "topic:hf/001"
-#define PAYLOAD     "{ \
-\"retcode\": 0, \
-\"msg\": \"success\", \
-\"data\": { \
-\"clientId\": \"1578480354203-s1dpum-ln\",\
-\"clientId1\": \"nl-mupd1s-3024530848751\",\
-\"serviceAddr\": \"47.103.67.177\",\
-\"servicePort\": \"1883\",\
-\"password\": \"0dxktpsf9wqt5bmzq8t9liuliu\"\
-} \
-}"
 
-#define QOS         2
-#define TIMEOUT     10000L
-#define userName "admin"
-#define pwd "public"
-volatile MQTTClient_deliveryToken deliveredtoken;
-
-void delivered(void *context, MQTTClient_deliveryToken dt)
+void  getRoomInfoCallback(const HotelRoomInfo& roomInfo)
 {
-    printf("Message with token value %d delivery confirmed\n", dt);
-    deliveredtoken = dt;
+    std::cout<<"floor: "<<roomInfo.floor<<endl;
+    std::cout<<"hotelEnglishName: "<<roomInfo.hotelEnglishName<<endl;
+    std::cout<<"hotelIcon: "<<roomInfo.hotelIcon<<endl;
+    std::cout<<"hotelId: "<<roomInfo.hotelId<<endl;
+    std::cout<<"hotelName: "<<roomInfo.hotelName<<endl;
+    std::cout<<"houseTypeId: "<<roomInfo.houseTypeId<<endl;
+    std::cout<<"houseTypeName: "<<roomInfo.houseTypeName<<endl;
+    std::cout<<"phone: "<<roomInfo.phone<<endl;
+    std::cout<<"remark: "<<roomInfo.remark<<endl;
+    std::cout<<"roomId: "<<roomInfo.roomId<<endl;
+    std::cout<<"roomImgUrl: "<<roomInfo.roomImgUrl<<endl;
+    std::cout<<"roomNum: "<<roomInfo.roomNum<<endl;
+} 
+
+void getSubsribeMsgCallback(const std::string topic, const std::string msg)
+{
+    std::cout<<"topic: "<<topic<<endl;
+    std::cout<<"msg: \n"<<msg<<endl;
 }
 
-int msgarrvd(void *context, char *topicName, int topicLen, MQTTClient_message *message)
+int main(int argc, char *argv[])
 {
-    printf("Message arrived\n");
-    printf("     topic: %s\n", topicName);
-    printf("   message: %.*s\n", message->payloadlen, (char*)message->payload);
-    MQTTClient_freeMessage(&message);
-    MQTTClient_free(topicName);
-    return 1;
-}
-
-void connlost(void *context, char *cause)
-{
-    printf("\nConnection lost\n");
-    printf("     cause: %s\n", cause);
-}
-
-int main(int argc, char * argv[])
-{
-    MQTTClient client;
-    MQTTClient_connectOptions conn_opts = MQTTClient_connectOptions_initializer;
-    MQTTClient_message pubmsg = MQTTClient_message_initializer;
-    MQTTClient_deliveryToken token;
+    string address = "172.16.19.150";
+    unsigned int port = 1883;
+    string clientId = "liuliuclient001";
+    string userName = "admin";
+    string password = "public";
+    string topic = "topic:hf/001";
+    string msg = "hello world.";
+    int qos = 2;
     int rc;
-    int mcount = 3;
+    int retained =1;
     char*mtopic[3] = {"topic:shimao/face/#", "topic:shimao/table/#", "topic:shimao/leg/#"};
     int mQos[3] = {2,2,2};
-    char * sendPaload = "1+1+1+1?????????== hello world.";
-
-    if ((rc = MQTTClient_create(&client, ADDRESS, CLIENTID,
-        MQTTCLIENT_PERSISTENCE_NONE, NULL)) != MQTTCLIENT_SUCCESS)
-    {
-        printf("Failed to create client, return code %d\n", rc);
-        rc = EXIT_FAILURE;
-        goto exit;
-    }
-
-    if ((rc = MQTTClient_setCallbacks(client, NULL, connlost, msgarrvd, delivered)) != MQTTCLIENT_SUCCESS)
-    {
-        printf("Failed to set callbacks, return code %d\n", rc);
-        rc = EXIT_FAILURE;
-        goto destroy_exit;
-    }
-
-    conn_opts.keepAliveInterval = 20;
-    conn_opts.cleansession = 1;
-    conn_opts.username = userName;
-    conn_opts.password = pwd;
-    if ((rc = MQTTClient_connect(client, &conn_opts)) != MQTTCLIENT_SUCCESS)
-    {
-        printf("Failed to connect, return code %d\n", rc);
-        rc = EXIT_FAILURE;
-        goto destroy_exit;
-    }
-
-    printf("Subscribing to topic %s\nfor client %s using QoS%d\n\n"
-           "Press Q<Enter> to quit\n\n", TOPIC, CLIENTID, QOS);
-
-    // if ((rc = MQTTClient_subscribe(client, TOPIC, QOS)) != MQTTCLIENT_SUCCESS)
+    hfMqttManager mqttManager;
+    string deviceCode = "123456";
+    string httpMqttUrl = "http://127.0.0.1";
+    string httpRoomMsgUrl = "http://127.0.0.1";
+    
+    // if(mqttManager.hfMqttClientInit(address.c_str(), port, clientId.c_str(), userName.c_str(), password.c_str(), msgarrvd) == false)
     // {
-    // 	printf("Failed to subscribe, return code %d\n", rc);
-    // 	rc = EXIT_FAILURE;
+    //     cout<<"connect failed to mqtt server..."<<std::endl;
+    //     return -1;
     // }
-    if ((rc = MQTTClient_subscribeMany(client, mcount, mtopic, mQos)) != MQTTCLIENT_SUCCESS)
+    if(mqttManager.hfMqttManagerInit(deviceCode, httpMqttUrl, httpRoomMsgUrl, getRoomInfoCallback, getSubsribeMsgCallback) == false)
     {
-    	printf("Failed to subscribe, return code %d\n", rc);
-    	rc = EXIT_FAILURE;
+        cout<<"connect failed to mqtt server..."<<std::endl;
+        return -1;
     }
-    else
+    cout<<"connect success to mqtt server..."<<std::endl;
+   
+    // if(hfMqttClientSubscribe(topic.c_str(), qos) == false)
+    // {
+    //     cout <<"subscribe topic: "<<topic<<" failed...."<<std::endl;
+    //     return -1;
+    // }
+    map<string, int> topics;
+    topics["topic:shimao/face/#"] = 2;
+    topics["topic:shimao/table/#"] = 2;
+    topics["topic:shimao/leg/#"] = 2;
+    if(mqttManager.hfMqttClientSubscribeMany(topics) == false)
     {
-    	int ch;
-    	do
-    	{
-        	ch = getchar();
-            printf("get char : %c \n", ch);
-            if(ch == 'p')
-            {
-                printf("start send public message.\n");
-                if ((rc = MQTTClient_publish(client, TOPIC, (int)strlen(sendPaload), sendPaload, QOS, 1, &token)) != MQTTCLIENT_SUCCESS)
-                {
-                    printf("Failed to publish message, return code %d\n", rc);
-                }
-                else 
-                {
-                    printf("Success to publish message, return code %d\n", rc);
-                }
-                printf("end send publish message.\n");
+        cout << "subscribe topic: "<<topic<<" failed...."<<std::endl;
+        return -1;
+    }
 
-            }
-            else if(ch == 'c')
-            {
-                pubmsg.payload = NULL;
-                pubmsg.payloadlen = 0;
-                pubmsg.qos = QOS;
-                pubmsg.retained = 0;
-                printf("start send public message.\n");
-                if ((rc = MQTTClient_publishMessage(client, TOPIC, &pubmsg, NULL)) != MQTTCLIENT_SUCCESS)
-                {
-                    printf("Failed to publish message, return code %d\n", rc);
-                }
-                else 
-                {
-                    printf("Success to publish message, return code %d\n", rc);
-                }
-                printf("end send publish message.\n");               
-            }
-    	} while (ch!='Q' && ch != 'q');
-
-        // if ((rc = MQTTClient_unsubscribe(client, TOPIC)) != MQTTCLIENT_SUCCESS)
-        // {
-        // 	printf("Failed to unsubscribe, return code %d\n", rc);
-        // 	rc = EXIT_FAILURE;
-        // }
-        if ((rc = MQTTClient_unsubscribeMany(client,mcount, mtopic)) != MQTTCLIENT_SUCCESS)
+    int ch;
+    do
+    {
+        ch = getchar();
+        printf("get char : %c \n", ch);
+        if(ch == 'p')
         {
-        	printf("Failed to unsubscribe, return code %d\n", rc);
-        	rc = EXIT_FAILURE;
-        } 
-    }
+            printf("start send public message.\n");
+            if (mqttManager.hfMqttClientPublishMsg(topic, msg, qos, retained) == false)
+                cout <<"publish message failed....\n"<<std::endl;
 
-    if ((rc = MQTTClient_disconnect(client, 10000)) != MQTTCLIENT_SUCCESS)
-    {
-    	printf("Failed to disconnect, return code %d\n", rc);
-    	rc = EXIT_FAILURE;
-    }
-destroy_exit:
-    MQTTClient_destroy(&client);
-exit:
-    return rc;
+        }
+    } while (ch!='Q' && ch != 'q');
+
+    return 0;
 }

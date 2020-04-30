@@ -18,6 +18,7 @@ namespace {
     const int MQTT_QUEUE_ALARM_SIZE = 400;
     const int ROOM_INFO_CALLBACK_TIME = 10000;  //ms 房间信息回调时间
     const int UPLOAD_MSG_TIME_OUT = 5000;    // ms MQTT上传消息确认超时时间
+    const int RECONNECT_MAX_TIMES = 5;      //mqtt重连次数，超过就重新鉴权，获取最新鉴权信息 
 
 }
 
@@ -121,11 +122,11 @@ void hfMqttManager::hfMqttClientUninit()
     isConnected = false;
 }
 
-std::string hfMqttManager::getSignature(const std::string & accessKey, const std::string & secretKey)
+std::string hfMqttManager::getSignature(const std::string & entityCode, const std::string & accessKey, const std::string & secretKey)
 {
     char stringSignTemp[1024];
     std::string timestampStr = getTimestamp();
-    sprintf(stringSignTemp, "AccessKey=%s&Timestamp=%s&SecretKey=%s",accessKey.c_str(),timestampStr.c_str(), secretKey.c_str());
+    sprintf(stringSignTemp, "AccessKey=%s&Timestamp=%s&entityCode=%s&SecretKey=%s",accessKey.c_str(),timestampStr.c_str(), entityCode.c_str(), secretKey.c_str());
     std::string rtn = toolkit::MD5(stringSignTemp).hexdigest();
     std::transform(rtn.begin(), rtn.end(),rtn.begin(), ::toupper);
     return rtn;
@@ -143,6 +144,7 @@ bool hfMqttManager::hfMqttManagerInit(const string & deviceCode,
     this->getMsgClk = getMsgClk;
     this->getSubscrbClk = getSubscrbClk;
     
+    deviceInfo.entityCode = deviceCode;
     char topic[128] ={0};
     sprintf(topic, "Topic:shimao/face/%s/%s/state", HF_CODE, deviceCode.c_str());
     mqttUploadTopic = topic;   //添加发布消息topic
@@ -324,7 +326,7 @@ bool hfMqttManager::getMqttServerMsgByDeviceCode(const std::string &httpUrl,
     string body;
     std::map<string, string> headers;
     headers["brand"] = HF_CODE;
-    headers["signature"] = getSignature(accessKey, secretKey);
+    headers["signature"] = getSignature(deviceCode, accessKey, secretKey);
     headers["Content-Type"] = "application/json;charset=UTF-8";
     headers["timestamp"] = getTimestamp();
 
@@ -363,7 +365,7 @@ bool hfMqttManager::getRoomInfoByDeviceCode(const std::string &httpUrl,
     string body;
     std::map<string, string> headers;
     headers["brand"] = HF_CODE;
-    headers["signature"] = getSignature(accessKey, secretKey);
+    headers["signature"] = getSignature(deviceCode, accessKey, secretKey);
     headers["Content-Type"] = "application/json";
     // headers["timestamp"] = getTimestamp();
 
@@ -528,14 +530,14 @@ bool hfMqttManager::hfMqttClientReSubscribe()
 void hfMqttManager::handleEventThread()
 {
     struct timeval curTime, lastTime, startTime;
-    int minWaitTime, tempVal;
+    int minWaitTime, tempVal, iReConnTimes = 0;
     gettimeofday(&startTime,NULL); 
     gettimeofday(&lastTime,NULL); 
     while(!forceQuit)
     {
         minWaitTime = INT_MAX;
         gettimeofday(&curTime,NULL); 
-        if(!isConnected && curTime.tv_sec - startTime.tv_sec >= 15*24*60*60)
+        if(!isConnected && iReConnTimes >= RECONNECT_MAX_TIMES)
         {
             ifGetMqttServerInfo = false; //重新鉴权
         }
@@ -555,7 +557,12 @@ void hfMqttManager::handleEventThread()
         }
 
         if(!isConnected)
+        {
             minWaitTime = std::min(minWaitTime, 1000);
+            ++iReConnTimes;
+        }
+        else
+            iReConnTimes = 0; 
 
         tempVal  = (curTime.tv_sec * 1000 + curTime.tv_usec / 1000) - (lastTime.tv_sec * 1000 + lastTime.tv_usec / 1000);   
         if(tempVal >= ROOM_INFO_CALLBACK_TIME)
@@ -603,11 +610,10 @@ void hfMqttManager::handleEventThread()
                 else
                 {
                     minWaitTime = std::min(minWaitTime, UPLOAD_MSG_TIME_OUT - tempVal);
-                }
-                
+                }              
             }
-
         }
+        std::cout<<"cur minWaitTime is: "<<minWaitTime<<endl;
         if(minWaitTime > 0 )
         {
             cv.wait_for(lck,std::chrono::milliseconds(minWaitTime));  
