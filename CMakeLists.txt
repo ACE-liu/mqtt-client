@@ -19,6 +19,7 @@ include_directories(${CMAKE_SOURCE_DIR}/libs/curl-7.55.1/include)
 if(ENABLE_ARM)
 link_directories(${CMAKE_SOURCE_DIR}/libs/paho.mqtt.c/armlib)
 link_directories(${CMAKE_SOURCE_DIR}/libs/curl-7.55.1/armlib)
+link_directories(${CMAKE_SOURCE_DIR}/libs/openssl/armlib)
 else()
 link_directories(${CMAKE_SOURCE_DIR}/libs/paho.mqtt.c/lib)
 link_directories(${CMAKE_SOURCE_DIR}/libs/curl-7.55.1/lib)
@@ -30,7 +31,7 @@ ADD_LIBRARY(jsoncpp STATIC ${jsoncpp_src_list})
 
 
 ADD_EXECUTABLE(hfMqttTest hfMqttTest.cpp ${src_list})
-TARGET_LINK_LIBRARIES(hfMqttTest paho-mqtt3c jsoncpp curl pthread)
+TARGET_LINK_LIBRARIES(hfMqttTest paho-mqtt3c jsoncpp curl pthread ssl crypto)
 
 
 

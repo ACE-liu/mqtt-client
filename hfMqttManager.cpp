@@ -122,15 +122,6 @@ void hfMqttManager::hfMqttClientUninit()
     isConnected = false;
 }
 
-std::string hfMqttManager::getSignature(const std::string & entityCode, const std::string & accessKey, const std::string & secretKey)
-{
-    char stringSignTemp[1024];
-    std::string timestampStr = getTimestamp();
-    sprintf(stringSignTemp, "AccessKey=%s&Timestamp=%s&entityCode=%s&SecretKey=%s",accessKey.c_str(),timestampStr.c_str(), entityCode.c_str(), secretKey.c_str());
-    std::string rtn = toolkit::MD5(stringSignTemp).hexdigest();
-    std::transform(rtn.begin(), rtn.end(),rtn.begin(), ::toupper);
-    return rtn;
-}
 
 bool hfMqttManager::hfMqttManagerInit(const string & deviceCode, 
                                       const std::string &httpMqttServerUrl, 
@@ -161,6 +152,7 @@ bool hfMqttManager::hfMqttManagerInit(const string & deviceCode,
         getMsgClk(this->hotelRoomInfo);     
     
     _thread = std::make_shared<thread>([this](){ this->handleEventThread();});
+    return true;
 }
 
 inline std::string hfMqttManager::getTimestamp()
@@ -324,17 +316,27 @@ bool hfMqttManager::getMqttServerMsgByDeviceCode(const std::string &httpUrl,
 {
     string rtn;
     string body;
+    char stringSignTemp[1024];
     std::map<string, string> headers;
     headers["brand"] = HF_CODE;
-    headers["signature"] = getSignature(deviceCode, accessKey, secretKey);
+    std::string timestampStr = getTimestamp();
+    headers["timestamp"] = timestampStr;
+
+    sprintf(stringSignTemp, "AccessKey=%s&Timestamp=%s&entityCode=%s&SecretKey=%s",accessKey.c_str(),timestampStr.c_str(), deviceCode.c_str(), secretKey.c_str());
+    std::string signature = toolkit::MD5(stringSignTemp).hexdigest();
+    std::transform(signature.begin(), signature.end(),signature.begin(), ::toupper);  
+    headers["signature"] = signature;
+
     headers["Content-Type"] = "application/json;charset=UTF-8";
-    headers["timestamp"] = getTimestamp();
 
     Json::Value val;
     val["entityCode"] = deviceCode;
     body = val.toStyledString();
     if(!hfHttpClient::httpPostRequest(httpUrl, headers, body, rtn))
+    {
+        std::cout<<"getMqttServerMsgByDeviceCode httpPostRequest failed... "<<endl;
         return false;
+    }
     cout<<"get Mqtt Server Msg success."<<endl;
     Json::Reader JsonParser;
     Json::Value tempVal;
@@ -345,7 +347,7 @@ bool hfMqttManager::getMqttServerMsgByDeviceCode(const std::string &httpUrl,
     int returnCode = tempVal["retcode"].asInt();
     if(returnCode != CODE_SUCCESS)
     {
-        cout <<"http post error with code: "<<returnCode<<endl;
+        cout <<"http post error with code: "<<returnCode<<"\nret:\n"<<rtn<<endl;
         return false;
     }
     serverInfo.clientId = tempVal["data"]["clientId"].asString();
@@ -364,16 +366,24 @@ bool hfMqttManager::getRoomInfoByDeviceCode(const std::string &httpUrl,
     string rtn;
     string body;
     std::map<string, string> headers;
+    char stringSignTemp[1024];
     headers["brand"] = HF_CODE;
-    headers["signature"] = getSignature(deviceCode, accessKey, secretKey);
+    std::string timestampStr = getTimestamp();
+    headers["timestamp"] = timestampStr;
+    sprintf(stringSignTemp, "AccessKey=%s&Timestamp=%s&deviceCode=%s&SecretKey=%s",accessKey.c_str(),timestampStr.c_str(), deviceCode.c_str(), secretKey.c_str());
+    std::string signature = toolkit::MD5(stringSignTemp).hexdigest();
+    std::transform(signature.begin(), signature.end(),signature.begin(), ::toupper);
+    headers["signature"] = signature;
     headers["Content-Type"] = "application/json";
-    // headers["timestamp"] = getTimestamp();
 
     Json::Value val;
     val["deviceCode"] = deviceCode;
     body = val.toStyledString();
     if(!hfHttpClient::httpPostRequest(httpUrl, headers, body, rtn))
+    {
+        std::cout<<"getRoomInfoByDeviceCode httpPostRequest failed... "<<endl;
         return false;
+    }
     cout<<"get hotel room info success."<<endl;
     Json::Reader JsonParser;
     Json::Value tempVal;
@@ -382,25 +392,28 @@ bool hfMqttManager::getRoomInfoByDeviceCode(const std::string &httpUrl,
         return false;
     }
     int returnCode = tempVal["retcode"].asInt();
-    if(returnCode != CODE_SUCCESS)
-    {
-        cout <<"http post error with code: "<<returnCode<<endl;
-        return false;
+    if(returnCode == CODE_SUCCESS)
+    {    
+        roomInfo.floor = tempVal["data"]["floor"].asString();
+        roomInfo.hotelId = tempVal["data"]["hotelId"].asString();
+        roomInfo.hotelName = tempVal["data"]["hotelName"].asString();
+        roomInfo.hotelEnglishName = tempVal["data"]["hotelEnglishName"].asString();
+        roomInfo.hotelIcon = tempVal["data"]["hotelIcon"].asString();
+        roomInfo.houseTypeId = tempVal["data"]["houseTypeId"].asString();
+        roomInfo.houseTypeName = tempVal["data"]["houseTypeName"].asString();
+        roomInfo.roomImgUrl = tempVal["data"]["roomImgUrl"].asString();
+        roomInfo.phone = tempVal["data"]["phone"].asString();
+        roomInfo.remark = tempVal["data"]["remark"].asString();
+        roomInfo.roomId = tempVal["data"]["roomId"].asString();
+        roomInfo.roomNum = tempVal["data"]["roomNum"].asString();
+        ifGetHotelRoomInfo = true;
+        return true;
     }
-    roomInfo.floor = tempVal["data"]["floor"].asString();
-    roomInfo.hotelId = tempVal["data"]["hotelId"].asString();
-    roomInfo.hotelName = tempVal["data"]["hotelName"].asString();
-    roomInfo.hotelEnglishName = tempVal["data"]["hotelEnglishName"].asString();
-    roomInfo.hotelIcon = tempVal["data"]["hotelIcon"].asString();
-    roomInfo.houseTypeId = tempVal["data"]["houseTypeId"].asString();
-    roomInfo.houseTypeName = tempVal["data"]["houseTypeName"].asString();
-    roomInfo.roomImgUrl = tempVal["data"]["roomImgUrl"].asString();
-    roomInfo.phone = tempVal["data"]["phone"].asString();
-    roomInfo.remark = tempVal["data"]["remark"].asString();
-    roomInfo.roomId = tempVal["data"]["roomId"].asString();
-    roomInfo.roomNum = tempVal["data"]["roomNum"].asString();
-    ifGetHotelRoomInfo = true;
-    return true;
+    else
+    {
+        cout <<"http post error with code: "<<returnCode<<"\n ret:\n"<<rtn<<endl;
+    }
+    return false;
 }
 
 
@@ -408,7 +421,12 @@ bool hfMqttManager::hfMqttClientInit_(const MqttServerInfo& serverInfo)
 {
     MQTTClient_connectOptions conn_opts = MQTTClient_connectOptions_initializer;
     int rc;
-    string conUrl = serverInfo.serverAddr + to_string(serverInfo.port);
+    std::cout<<"serverInfo: \n"<<endl;
+    std::cout<<"clientId: "<<serverInfo.clientId<<endl;
+    std::cout<<"serverAddr: "<<serverInfo.serverAddr<<endl;
+    std::cout<<"port: "<<serverInfo.port<<endl;
+    std::cout<<"password: "<<serverInfo.password<<endl;
+    string conUrl = serverInfo.serverAddr +":"+ to_string(serverInfo.port);
     if ((rc = MQTTClient_create(&client, conUrl.c_str(), serverInfo.clientId.c_str(),
         MQTTCLIENT_PERSISTENCE_NONE, NULL)) != MQTTCLIENT_SUCCESS)
     {
@@ -551,7 +569,7 @@ void hfMqttManager::handleEventThread()
             minWaitTime = 1000;
         }
 
-        if(!isConnected && hfMqttClientInit_(this->mqttServerInfo))
+        if(ifGetMqttServerInfo && !isConnected && hfMqttClientInit_(this->mqttServerInfo))
         {
             hfMqttClientReSubscribe();  //订阅之前订阅的topic
         }
@@ -614,7 +632,7 @@ void hfMqttManager::handleEventThread()
             }
         }
         std::cout<<"cur minWaitTime is: "<<minWaitTime<<endl;
-        if(minWaitTime > 0 )
+        if(minWaitTime > 0)
         {
             cv.wait_for(lck,std::chrono::milliseconds(minWaitTime));  
         }

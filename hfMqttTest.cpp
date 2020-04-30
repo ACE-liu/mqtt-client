@@ -14,6 +14,7 @@ using namespace std;
 
 void  getRoomInfoCallback(const HotelRoomInfo& roomInfo)
 {
+    std::cout<<"********************************************"<<endl;
     std::cout<<"floor: "<<roomInfo.floor<<endl;
     std::cout<<"hotelEnglishName: "<<roomInfo.hotelEnglishName<<endl;
     std::cout<<"hotelIcon: "<<roomInfo.hotelIcon<<endl;
@@ -26,6 +27,7 @@ void  getRoomInfoCallback(const HotelRoomInfo& roomInfo)
     std::cout<<"roomId: "<<roomInfo.roomId<<endl;
     std::cout<<"roomImgUrl: "<<roomInfo.roomImgUrl<<endl;
     std::cout<<"roomNum: "<<roomInfo.roomNum<<endl;
+    std::cout<<"********************************************"<<endl;
 } 
 
 void getSubsribeMsgCallback(const std::string topic, const std::string msg)
@@ -49,9 +51,9 @@ int main(int argc, char *argv[])
     char*mtopic[3] = {"topic:shimao/face/#", "topic:shimao/table/#", "topic:shimao/leg/#"};
     int mQos[3] = {2,2,2};
     hfMqttManager mqttManager;
-    string deviceCode = "123456";
-    string httpMqttUrl = "http://127.0.0.1";
-    string httpRoomMsgUrl = "http://127.0.0.1";
+    string deviceCode = "800988780000665";
+    string httpMqttUrl = "https://test-api.shimaoiot.com/api/auth/deviceClientInfo";
+    string httpRoomMsgUrl = "https://test-api.shimaoiot.com/api/device/hotel/rooms/search";
     
     // if(mqttManager.hfMqttClientInit(address.c_str(), port, clientId.c_str(), userName.c_str(), password.c_str(), msgarrvd) == false)
     // {
@@ -70,15 +72,15 @@ int main(int argc, char *argv[])
     //     cout <<"subscribe topic: "<<topic<<" failed...."<<std::endl;
     //     return -1;
     // }
-    map<string, int> topics;
-    topics["topic:shimao/face/#"] = 2;
-    topics["topic:shimao/table/#"] = 2;
-    topics["topic:shimao/leg/#"] = 2;
-    if(mqttManager.hfMqttClientSubscribeMany(topics) == false)
-    {
-        cout << "subscribe topic: "<<topic<<" failed...."<<std::endl;
-        return -1;
-    }
+    // map<string, int> topics;
+    // topics["topic:shimao/face/#"] = 2;
+    // topics["topic:shimao/table/#"] = 2;
+    // topics["topic:shimao/leg/#"] = 2;
+    // if(mqttManager.hfMqttClientSubscribeMany(topics) == false)
+    // {
+    //     cout << "subscribe topic: "<<topic<<" failed...."<<std::endl;
+    //     return -1;
+    // }
 
     int ch;
     do
